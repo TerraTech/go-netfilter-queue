@@ -207,11 +207,8 @@ func go_callback(packetId C.uint32_t, data *C.uchar, length C.int, idx uint32, q
 		p.SetVerdict(NF_DROP)
 	}
 
-	// Nonblocking write of packet to queue channel
-	select {
-	case *cb <- p:
-	default:
-		fmt.Fprintf(os.Stderr, "Dropping, unexpectedly due to no recv, idx=%d\n", idx)
-		p.SetVerdict(NF_DROP)
-	}
+	// blocking write of packet to queue channel. We're doing a blocking write here to minimize the
+	// num of places where packets are dropped when we can't keep up with the processing. Blocking
+	// here means that packets will only be dropped by the kernel when the kernel queue is full.
+	*cb <- p
 }
