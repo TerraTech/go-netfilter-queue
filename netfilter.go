@@ -37,16 +37,13 @@ import (
 	"sync"
 	"time"
 	"unsafe"
-
-	"github.com/google/gopacket"
-	"github.com/google/gopacket/layers"
 )
 
 //Verdict for a packet
 type Verdict C.uint
 
 type NFPacket struct {
-	Packet gopacket.Packet
+	Packet []byte
 	qh     *C.struct_nfq_q_handle
 	id     C.uint32_t
 }
@@ -186,15 +183,8 @@ func (nfq *NFQueue) run() {
 func go_callback(packetId C.uint32_t, data *C.uchar, length C.int, idx uint32, qh *C.struct_nfq_q_handle) {
 	xdata := C.GoBytes(unsafe.Pointer(data), length)
 
-	var packet gopacket.Packet
-	if xdata[0]&0xf0 == ipv4version {
-		packet = gopacket.NewPacket(xdata, layers.LayerTypeIPv4, gopacket.DecodeOptions{Lazy: true, NoCopy: true})
-	} else {
-		packet = gopacket.NewPacket(xdata, layers.LayerTypeIPv6, gopacket.DecodeOptions{Lazy: true, NoCopy: true})
-	}
-
 	p := NFPacket{
-		Packet: packet,
+		Packet: xdata,
 		qh:     qh,
 		id:     packetId,
 	}
