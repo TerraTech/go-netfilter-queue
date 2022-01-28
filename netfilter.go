@@ -173,6 +173,16 @@ func (nfq *NFQueue) GetPackets() <-chan NFPacket {
 	return nfq.packets
 }
 
+//Set queue to "FAIL-OPEN"
+func (nfq *NFQueue) SetFailOpen() error {
+	ret, err := C.SetQueueFailOpen(nfq.qh)
+	if err != nil || ret < 0 {
+		return fmt.Errorf("Unable to set FAIL-OPEN on queue handle: %v\n", err)
+	}
+
+	return nil
+}
+
 func (nfq *NFQueue) run() {
 	if errno := C.Run(nfq.h, nfq.fd); errno != 0 {
 		fmt.Fprintf(os.Stderr, "Terminating, unable to receive packet due to errno=%d\n", errno)

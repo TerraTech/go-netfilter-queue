@@ -59,6 +59,10 @@ static inline struct nfq_q_handle* CreateQueue(struct nfq_handle *h, u_int16_t q
     return nfq_create_queue(h, queue, &nf_callback, (void*)((uintptr_t)idx));
 }
 
+static inline int SetQueueFailOpen(struct nfq_q_handle *qh) {
+	return nfq_set_queue_flags(qh, NFQA_CFG_F_FAIL_OPEN, NFQA_CFG_F_FAIL_OPEN);
+}
+
 static inline int Run(struct nfq_handle *h, int fd)
 {
     char buf[4096] __attribute__ ((aligned));
