@@ -29,6 +29,8 @@
 #include <linux/netfilter.h>
 #include <libnetfilter_queue/libnetfilter_queue.h>
 
+static uint8_t stop = 0;
+
 extern void go_callback(
     uint32_t id,
     unsigned char* data,
@@ -38,6 +40,10 @@ extern void go_callback(
 );
 
 static int nf_callback(struct nfq_q_handle *qh, struct nfgenmsg *nfmsg, struct nfq_data *nfa, void *cb_func){
+    if (stop) {
+        return -1;
+    }
+
     uint32_t id = -1;
     struct nfqnl_msg_packet_hdr *ph = NULL;
     unsigned char *buffer = NULL;
@@ -63,6 +69,10 @@ static inline int SetQueueFailOpen(struct nfq_q_handle *qh) {
 	return nfq_set_queue_flags(qh, NFQA_CFG_F_FAIL_OPEN, NFQA_CFG_F_FAIL_OPEN);
 }
 
+static inline void stop_reading_packets() {
+	stop = 1;
+}
+
 static inline int Run(struct nfq_handle *h, int fd)
 {
     char buf[4096] __attribute__ ((aligned));
@@ -72,6 +82,9 @@ static inline int Run(struct nfq_handle *h, int fd)
     setsockopt(fd, SOL_NETLINK, NETLINK_NO_ENOBUFS, &opt, sizeof(int));
 
     while ((rv = recv(fd, buf, sizeof(buf), 0)) && rv >= 0) {
+        if (stop == 1) {
+            return errno;
+        }
         nfq_handle_packet(h, buf, rv);
     }
 

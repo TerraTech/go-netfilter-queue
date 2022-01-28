@@ -158,14 +158,49 @@ func NewNFQueue(queueId uint16, maxPacketsInQueue uint32, packetSize uint32) (*N
 	return &nfq, nil
 }
 
-//Unbind and close the queue
+// Unbind and close the queue
+// Close ensures that nfqueue resources are freed and closed.
+// C.stop_reading_packets() stops the reading packets loop, which causes
+// go-subroutine run() to exit.
+// After exit, listening queue is destroyed and closed.
+// If for some reason any of the steps stucks while closing it, we'll exit by timeout.
+// reference:  https://bit.ly/35ybNRF
 func (nfq *NFQueue) Close() {
-	C.nfq_destroy_queue(nfq.qh)
-	C.nfq_close(nfq.h)
-	theTabeLock.Lock()
 	close(nfq.packets)
+	C.stop_reading_packets()
+	nfq.destroy()
+	theTabeLock.Lock()
 	delete(theTable, nfq.idx)
 	theTabeLock.Unlock()
+}
+
+func (nfq *NFQueue) destroy() {
+	// we'll try to exit cleanly, but sometimes nfqueue gets stuck
+	time.AfterFunc(5*time.Second, func() {
+		fmt.Println("queue stuck, closing by timeout")
+		if nfq != nil {
+			C.close(nfq.fd)
+			nfq.closeNfq()
+		}
+		os.Exit(0)
+	})
+	C.nfq_unbind_pf(nfq.h, AF_INET)
+	C.nfq_unbind_pf(nfq.h, AF_INET6)
+	if nfq.qh != nil {
+		if ret := C.nfq_destroy_queue(nfq.qh); ret != 0 {
+			fmt.Printf("Queue.destroy() not destroyed: %d\n", ret)
+		}
+	}
+
+	nfq.closeNfq()
+}
+
+func (nfq *NFQueue) closeNfq() {
+	if nfq.h != nil {
+		if ret := C.nfq_close(nfq.h); ret != 0 {
+			fmt.Printf("nfq_close() not closed: %d\n", ret)
+		}
+	}
 }
 
 //Get the channel for packets
