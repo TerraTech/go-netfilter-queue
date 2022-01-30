@@ -166,9 +166,9 @@ func NewNFQueue(queueId uint16, maxPacketsInQueue uint32, packetSize uint32) (*N
 // If for some reason any of the steps stucks while closing it, we'll exit by timeout.
 // reference:  https://bit.ly/35ybNRF
 func (nfq *NFQueue) Close() {
-	close(nfq.packets)
 	C.stop_reading_packets()
 	nfq.destroy()
+	close(nfq.packets)
 	theTabeLock.Lock()
 	delete(theTable, nfq.idx)
 	theTabeLock.Unlock()
