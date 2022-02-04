@@ -99,6 +99,9 @@ const (
 var theTable = make(map[uint32]*chan NFPacket, 0)
 var theTabeLock sync.RWMutex
 
+// FailureVerdict is the default verdict in case of unexpected processing errors and is mutated by Fail-Open
+var FailureVerdict = NF_DROP
+
 //Create and bind to queue specified by queueId
 func NewNFQueue(queueId uint16, maxPacketsInQueue uint32, packetSize uint32) (*NFQueue, error) {
 	var nfq = NFQueue{}
@@ -215,6 +218,8 @@ func (nfq *NFQueue) SetFailOpen() error {
 		return fmt.Errorf("Unable to set FAIL-OPEN on queue handle: %v\n", err)
 	}
 
+	FailureVerdict = NF_ACCEPT
+
 	return nil
 }
 
@@ -238,8 +243,12 @@ func go_callback(packetId C.uint32_t, data *C.uchar, length C.int, idx uint32, q
 	cb, ok := theTable[idx]
 	theTabeLock.RUnlock()
 	if !ok {
-		fmt.Fprintf(os.Stderr, "Dropping, unexpectedly due to bad idx=%d\n", idx)
-		p.SetVerdict(NF_DROP)
+		disposition := "Dropping"
+		if FailureVerdict == NF_ACCEPT {
+			disposition = "[Fail-Open] Accepting"
+		}
+		fmt.Fprintf(os.Stderr, "%s, unexpectedly due to bad idx=%d\n", disposition, idx)
+		p.SetVerdict(FailureVerdict)
 	}
 
 	// blocking write of packet to queue channel. We're doing a blocking write here to minimize the
