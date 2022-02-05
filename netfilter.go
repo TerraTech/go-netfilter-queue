@@ -22,6 +22,8 @@ The libnetfilter_queue library is part of the http://netfilter.org/projects/libn
 */
 package netfilter
 
+//go:generate stringer -type=Verdict,Mark
+
 /*
 #cgo pkg-config: libnetfilter_queue
 #cgo CFLAGS: -Wall -Wno-unused-variable -I/usr/include -O2
@@ -42,6 +44,9 @@ import (
 //Verdict for a packet
 type Verdict C.uint
 
+//Mark for a packet
+type Mark C.uint
+
 type NFPacket struct {
 	Packet []byte
 	qh     *C.struct_nfq_q_handle
@@ -51,6 +56,23 @@ type NFPacket struct {
 //Set the verdict for the packet
 func (p *NFPacket) SetVerdict(v Verdict) {
 	C.nfq_set_verdict(p.qh, p.id, C.uint(v), 0, nil)
+}
+
+//SetVerdictMark will set the packet mark.  Verdict will be NF_ACCEPT or NF_REPEAT.
+func (p *NFPacket) SetVerdictMark(m Mark) {
+	verdict := NF_ACCEPT
+	if m == NF_MARK_REPEAT {
+		verdict = NF_REPEAT
+	}
+	C.nfq_set_verdict2(p.qh, p.id, C.uint(verdict), C.uint(m), 0, nil)
+}
+
+//SetRequeueVerdictMark will set the verdict and user defined mark for the packet (in the case of requeue)
+func (p *NFPacket) SetRequeueVerdictMark(newQueueId uint16, mark uint) {
+	v := uint(NF_QUEUE)
+	q := (uint(newQueueId) << 16)
+	v = v | q
+	C.nfq_set_verdict2(p.qh, p.id, C.uint(v), C.uint(mark), 0, nil)
 }
 
 //Set the verdict for the packet (in the case of requeue)
@@ -90,6 +112,15 @@ const (
 	NF_QUEUE  Verdict = 3
 	NF_REPEAT Verdict = 4
 	NF_STOP   Verdict = 5
+
+	// Avoid collisions by using high range 0x11000 - 0x11012
+	NF_MARK_DROP       Mark = 0x11000
+	NF_MARK_ACCEPT     Mark = 0x11001
+	NF_MARK_RETURN     Mark = 0x11002
+	NF_MARK_REPEAT     Mark = 0x11003
+	NF_MARK_DROP_LOG   Mark = 0x11010
+	NF_MARK_ACCEPT_LOG Mark = 0x11011
+	NF_MARK_RETURN_LOG Mark = 0x11012
 
 	NF_DEFAULT_PACKET_SIZE uint32 = 0xffff
 
