@@ -3,7 +3,7 @@ sudo: required
 language: go
 go:
   - "1.10.x"
-go_import_path: github.com/AkihiroSuda/go-netfilter-queue
+go_import_path: github.com/TerraTech/go-netfilter-queue
 before_install:
   - sudo apt-get update -qq
   - sudo apt-get install -y libnetfilter-queue-dev
